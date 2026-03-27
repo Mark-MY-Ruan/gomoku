@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五子棋 Gomoku</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Microsoft JhengHei', 'PingFang TC', Arial, sans-serif;
+    background: #0f0e17;
+    color: #fffffe;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 10px;
+  }
+
+  h1 {
+    font-size: 2em;
+    letter-spacing: 4px;
+    margin-bottom: 18px;
+    color: #ff8906;
+    text-shadow: 0 0 20px rgba(255,137,6,0.4);
+  }
+
+  /* ── Settings ── */
+  .settings {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 14px;
+    padding: 16px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 24px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .setting-group { display: flex; flex-direction: column; gap: 7px; }
+  .setting-group label { font-size: 0.78em; color: #a7a9be; letter-spacing: 1px; }
+
+  .btn-group { display: flex; gap: 6px; }
+
+  .opt-btn {
+    padding: 7px 14px;
+    border: 1.5px solid #3d3d6b;
+    background: transparent;
+    color: #a7a9be;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 0.88em;
+    transition: all 0.18s;
+  }
+  .opt-btn:hover { border-color: #ff8906; color: #ff8906; }
+  .opt-btn.active { background: #ff8906; border-color: #ff8906; color: #0f0e17; font-weight: bold; }
+
+  .start-btn {
+    padding: 10px 28px;
+    background: #ff8906;
+    color: #0f0e17;
+    border: none;
+    border-radius: 9px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+    letter-spacing: 1px;
+  }
+  .start-btn:hover { background: #e07a05; }
+
+  /* ── Game area ── */
+  .game-area {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  canvas {
+    border-radius: 4px;
+    cursor: crosshair;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+
+  /* ── Info panel ── */
+  .info-panel {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 14px;
+    padding: 18px 16px;
+    width: 170px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .turn-box { text-align: center; }
+  .stone-preview {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    margin: 0 auto 8px;
+    transition: background 0.3s;
+  }
+  .stone-black { background: radial-gradient(circle at 35% 32%, #666, #0a0a0a); box-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
+  .stone-white { background: radial-gradient(circle at 35% 32%, #fff, #c0c0c0); box-shadow: 2px 2px 6px rgba(0,0,0,0.5); border: 1px solid #aaa; }
+
+  .turn-label { font-size: 0.88em; color: #fffffe; }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82em;
+    color: #a7a9be;
+    padding: 4px 0;
+    border-bottom: 1px solid #2a2a4a;
+  }
+
+  .action-btn {
+    width: 100%;
+    padding: 8px;
+    background: transparent;
+    border: 1.5px solid #3d3d6b;
+    color: #a7a9be;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 0.88em;
+    transition: all 0.18s;
+  }
+  .action-btn:hover { border-color: #ff8906; color: #ff8906; }
+
+  .history-title { font-size: 0.78em; color: #a7a9be; letter-spacing: 1px; }
+  .history-list {
+    max-height: 240px;
+    overflow-y: auto;
+    font-size: 0.78em;
+    color: #6c6c8a;
+  }
+  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar-track { background: transparent; }
+  .history-list::-webkit-scrollbar-thumb { background: #3d3d6b; border-radius: 2px; }
+  .h-item {
+    padding: 2px 4px;
+    border-bottom: 1px solid #1e1e36;
+    display: flex;
+    gap: 6px;
+  }
+  .h-item.latest { color: #ff8906; }
+  .h-num { color: #3d3d6b; width: 22px; text-align: right; flex-shrink: 0; }
+
+  /* ── Winner overlay ── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(4px);
+  }
+  .overlay.show { display: flex; }
+
+  .winner-card {
+    background: #1a1a2e;
+    border: 2px solid #ff8906;
+    border-radius: 18px;
+    padding: 44px 52px;
+    text-align: center;
+    animation: popIn 0.3s ease;
+  }
+  @keyframes popIn {
+    from { transform: scale(0.7); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  .winner-title { font-size: 2.4em; color: #ff8906; margin-bottom: 8px; }
+  .winner-sub   { font-size: 1em; color: #a7a9be; margin-bottom: 24px; }
+
+  /* ── AI thinking indicator ── */
+  .thinking {
+    display: none;
+    font-size: 0.82em;
+    color: #ff8906;
+    text-align: center;
+    animation: blink 1s infinite;
+  }
+  .thinking.show { display: block; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+</head>
+<body>
+
+<h1>五子棋</h1>
+
+<!-- Settings -->
+<div class="settings">
+  <div class="setting-group">
+    <label>棋盤大小</label>
+    <div class="btn-group">
+      <button class="opt-btn active" id="sBtn15" onclick="setSetting('size',15)">15×15</button>
+      <button class="opt-btn"        id="sBtn30" onclick="setSetting('size',30)">30×30</button>
+    </div>
+  </div>
+
+  <div class="setting-group">
+    <label>對戰模式</label>
+    <div class="btn-group">
+      <button class="opt-btn active" id="mBtnPvP" onclick="setSetting('mode','pvp')">雙人對戰</button>
+      <button class="opt-btn"        id="mBtnPvE" onclick="setSetting('mode','pve')">對戰電腦</button>
+    </div>
+  </div>
+
+  <div class="setting-group" id="diffGroup" style="display:none">
+    <label>電腦難度</label>
+    <div class="btn-group">
+      <button class="opt-btn"        id="dBtnEasy"   onclick="setSetting('diff','easy')">簡單</button>
+      <button class="opt-btn active" id="dBtnMedium" onclick="setSetting('diff','medium')">中等</button>
+      <button class="opt-btn"        id="dBtnHard"   onclick="setSetting('diff','hard')">困難</button>
+    </div>
+  </div>
+
+  <button class="start-btn" onclick="startGame()">開始遊戲</button>
+</div>
+
+<!-- Game -->
+<div class="game-area">
+  <canvas id="board"></canvas>
+
+  <div class="info-panel">
+    <div class="turn-box">
+      <div class="stone-preview stone-black" id="stonePreview"></div>
+      <div class="turn-label" id="turnLabel">黑棋回合</div>
+    </div>
+    <div class="thinking" id="thinkingLabel">電腦思考中...</div>
+    <div class="stat-row"><span>棋步</span><span id="moveCount">0</span></div>
+    <button class="action-btn" onclick="undoMove()">↩ 悔棋</button>
+    <button class="action-btn" onclick="startGame()">↺ 重新開始</button>
+    <div class="history-title">棋步記錄</div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<!-- Winner overlay -->
+<div class="overlay" id="overlay">
+  <div class="winner-card">
+    <div class="winner-title" id="winnerTitle"></div>
+    <div class="winner-sub"   id="winnerSub"></div>
+    <button class="start-btn" onclick="closeOverlay()">再來一局</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+//  State
+// ════════════════════════════════════════
+let cfg = { size: 15, mode: 'pvp', diff: 'medium' };
+let board, currentPlayer, gameOver, history, hoverCell;
+let cellSize, padding;
+
+const canvas = document.getElementById('board');
+const ctx    = canvas.getContext('2d');
+
+// Column labels A-Z then AA,AB…
+function colLabel(c) {
+  return c < 26 ? String.fromCharCode(65 + c) : String.fromCharCode(64 + Math.floor(c/26)) + String.fromCharCode(65 + (c%26));
+}
+
+// ════════════════════════════════════════
+//  Settings UI
+// ════════════════════════════════════════
+function setSetting(key, val) {
+  cfg[key] = val;
+
+  if (key === 'size') {
+    document.getElementById('sBtn15').classList.toggle('active', val === 15);
+    document.getElementById('sBtn30').classList.toggle('active', val === 30);
+  }
+  if (key === 'mode') {
+    document.getElementById('mBtnPvP').classList.toggle('active', val === 'pvp');
+    document.getElementById('mBtnPvE').classList.toggle('active', val === 'pve');
+    document.getElementById('diffGroup').style.display = val === 'pve' ? '' : 'none';
+  }
+  if (key === 'diff') {
+    ['easy','medium','hard'].forEach(d => {
+      const id = 'dBtn' + d.charAt(0).toUpperCase() + d.slice(1);
+      document.getElementById(id).classList.toggle('active', d === val);
+    });
+  }
+}
+
+// ════════════════════════════════════════
+//  Game init
+// ════════════════════════════════════════
+function startGame() {
+  const N = cfg.size;
+  board         = Array.from({length: N}, () => new Uint8Array(N));
+  currentPlayer = 1; // 1=black 2=white
+  gameOver      = false;
+  history       = [];
+  hoverCell     = null;
+
+  setupCanvas();
+  drawBoard();
+  updateUI();
+  document.getElementById('historyList').innerHTML = '';
+  document.getElementById('moveCount').textContent = '0';
+  document.getElementById('overlay').classList.remove('show');
+}
+
+function setupCanvas() {
+  const N = cfg.size;
+  const maxPx = Math.min(
+    window.innerWidth  - (window.innerWidth > 500 ? 220 : 20),
+    window.innerHeight - 260,
+    N === 30 ? 680 : 600
+  );
+  cellSize = Math.max(Math.floor(maxPx / N), 18);
+  padding  = cellSize;
+  const size = padding * 2 + cellSize * (N - 1);
+  canvas.width  = size;
+  canvas.height = size;
+}
+
+// ════════════════════════════════════════
+//  Drawing
+// ════════════════════════════════════════
+function drawBoard() {
+  const N = cfg.size;
+  const sz = canvas.width;
+
+  // Background
+  ctx.fillStyle = '#c8a96e';
+  ctx.fillRect(0, 0, sz, sz);
+
+  // Subtle wood grain lines
+  ctx.strokeStyle = 'rgba(120,70,20,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < sz; i += 7) {
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(sz, i + 20); ctx.stroke();
+  }
+
+  // Grid
+  ctx.strokeStyle = '#7a5213';
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < N; i++) {
+    const x = padding + i * cellSize;
+    const y = padding + i * cellSize;
+    ctx.beginPath(); ctx.moveTo(x, padding); ctx.lineTo(x, padding + (N-1)*cellSize); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(padding, y); ctx.lineTo(padding + (N-1)*cellSize, y); ctx.stroke();
+  }
+
+  // Border (thicker outer lines)
+  ctx.strokeStyle = '#5a3a0a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(padding, padding, (N-1)*cellSize, (N-1)*cellSize);
+
+  // Star points
+  const stars = N === 15
+    ? [[3,3],[3,7],[3,11],[7,3],[7,7],[7,11],[11,3],[11,7],[11,11]]
+    : [[3,3],[3,15],[3,27],[15,3],[15,15],[15,27],[27,3],[27,15],[27,27]];
+  ctx.fillStyle = '#5a3a0a';
+  stars.forEach(([r,c]) => {
+    ctx.beginPath();
+    ctx.arc(padding + c*cellSize, padding + r*cellSize, Math.max(cellSize*0.1, 3), 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // Coordinate labels (only for 15x15 to avoid clutter)
+  if (N === 15 && cellSize >= 28) {
+    ctx.fillStyle = '#6b4a12';
+    ctx.font = `${Math.max(cellSize*0.35, 10)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < N; i++) {
+      ctx.fillText(colLabel(i), padding + i*cellSize, padding/2);
+      ctx.fillText(i + 1, padding/2, padding + i*cellSize);
+    }
+  }
+
+  // Hover ghost piece
+  if (hoverCell && !gameOver && board[hoverCell.r][hoverCell.c] === 0) {
+    drawPiece(hoverCell.r, hoverCell.c, currentPlayer, 0.35);
+  }
+
+  // Pieces
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      if (board[r][c]) drawPiece(r, c, board[r][c], 1.0);
+    }
+  }
+
+  // Last-move marker
+  if (history.length > 0) {
+    const last = history[history.length - 1];
+    const x = padding + last.c * cellSize;
+    const y = padding + last.r * cellSize;
+    const m = cellSize * 0.22;
+    ctx.strokeStyle = '#e84545';
+    ctx.lineWidth = Math.max(1.5, cellSize * 0.05);
+    ctx.strokeRect(x - m, y - m, m*2, m*2);
+  }
+}
+
+function drawPiece(r, c, player, alpha) {
+  const x = padding + c * cellSize;
+  const y = padding + r * cellSize;
+  const rad = cellSize * 0.44;
+
+  ctx.globalAlpha = alpha;
+
+  const g = ctx.createRadialGradient(x - rad*0.3, y - rad*0.35, rad*0.05, x, y, rad);
+  if (player === 1) {
+    g.addColorStop(0, '#6a6a6a');
+    g.addColorStop(0.4, '#1a1a1a');
+    g.addColorStop(1, '#000000');
+  } else {
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.5, '#e0e0e0');
+    g.addColorStop(1, '#a0a0a0');
+  }
+
+  ctx.beginPath();
+  ctx.arc(x, y, rad, 0, Math.PI * 2);
+  ctx.fillStyle = g;
+  ctx.fill();
+
+  if (player === 2) {
+    ctx.strokeStyle = 'rgba(100,100,100,0.5)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  // shine
+  const shine = ctx.createRadialGradient(x - rad*0.3, y - rad*0.35, 0, x - rad*0.2, y - rad*0.25, rad*0.5);
+  shine.addColorStop(0, player === 1 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)');
+  shine.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = shine;
+  ctx.fill();
+
+  ctx.globalAlpha = 1;
+}
+
+// ════════════════════════════════════════
+//  Input
+// ════════════════════════════════════════
+canvas.addEventListener('mousemove', e => {
+  if (gameOver) return;
+  if (cfg.mode === 'pve' && currentPlayer === 2) return;
+  const cell = getCell(e);
+  if (!cell) { hoverCell = null; drawBoard(); return; }
+  if (!hoverCell || hoverCell.r !== cell.r || hoverCell.c !== cell.c) {
+    hoverCell = cell;
+    drawBoard();
+  }
+});
+
+canvas.addEventListener('mouseleave', () => { hoverCell = null; drawBoard(); });
+
+canvas.addEventListener('click', e => {
+  if (gameOver) return;
+  if (cfg.mode === 'pve' && currentPlayer === 2) return;
+  const cell = getCell(e);
+  if (!cell) return;
+  if (board[cell.r][cell.c] !== 0) return;
+  placeStone(cell.r, cell.c);
+});
+
+function getCell(e) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width  / rect.width;
+  const sy = canvas.height / rect.height;
+  const px = (e.clientX - rect.left)  * sx;
+  const py = (e.clientY - rect.top)   * sy;
+  const c = Math.round((px - padding) / cellSize);
+  const r = Math.round((py - padding) / cellSize);
+  if (r < 0 || r >= cfg.size || c < 0 || c >= cfg.size) return null;
+  return { r, c };
+}
+
+// ════════════════════════════════════════
+//  Game logic
+// ════════════════════════════════════════
+function placeStone(r, c) {
+  board[r][c] = currentPlayer;
+  const label = `${currentPlayer === 1 ? '●' : '○'} ${colLabel(c)}${r+1}`;
+  history.push({ r, c, p: currentPlayer, label });
+
+  document.getElementById('moveCount').textContent = history.length;
+  addHistoryItem(label, history.length);
+  drawBoard();
+
+  if (checkWin(r, c, currentPlayer)) {
+    gameOver = true;
+    const winner = currentPlayer === 1 ? '黑棋勝利！' : (cfg.mode === 'pve' ? '電腦勝利！' : '白棋勝利！');
+    const sub    = `第 ${history.length} 手獲勝`;
+    setTimeout(() => showWinner(winner, sub), 150);
+    return;
+  }
+
+  if (history.length === cfg.size * cfg.size) {
+    gameOver = true;
+    setTimeout(() => showWinner('平  局', '棋盤已滿'), 150);
+    return;
+  }
+
+  currentPlayer = currentPlayer === 1 ? 2 : 1;
+  updateUI();
+
+  if (cfg.mode === 'pve' && currentPlayer === 2 && !gameOver) {
+    document.getElementById('thinkingLabel').classList.add('show');
+    setTimeout(() => {
+      const move = aiGetMove();
+      document.getElementById('thinkingLabel').classList.remove('show');
+      if (move) placeStone(move.r, move.c);
+    }, cfg.diff === 'hard' ? 400 : 200);
+  }
+}
+
+function checkWin(r, c, p) {
+  const N = cfg.size;
+  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+  for (const [dr,dc] of dirs) {
+    let cnt = 1;
+    for (let s = 1; s <= 4; s++) {
+      const nr = r+dr*s, nc = c+dc*s;
+      if (nr<0||nr>=N||nc<0||nc>=N||board[nr][nc]!==p) break; cnt++;
+    }
+    for (let s = 1; s <= 4; s++) {
+      const nr = r-dr*s, nc = c-dc*s;
+      if (nr<0||nr>=N||nc<0||nc>=N||board[nr][nc]!==p) break; cnt++;
+    }
+    if (cnt >= 5) return true;
+  }
+  return false;
+}
+
+function undoMove() {
+  if (history.length === 0) return;
+  const undoN = (cfg.mode === 'pve' && currentPlayer === 1 && history.length >= 2) ? 2 : 1;
+  for (let i = 0; i < undoN; i++) {
+    if (!history.length) break;
+    const m = history.pop();
+    board[m.r][m.c] = 0;
+  }
+  currentPlayer = history.length === 0 ? 1 : (history[history.length-1].p === 1 ? 2 : 1);
+  gameOver = false;
+  document.getElementById('moveCount').textContent = history.length;
+
+  // Rebuild history list
+  const hl = document.getElementById('historyList');
+  hl.innerHTML = '';
+  history.forEach((m, i) => addHistoryItem(m.label, i+1));
+
+  updateUI();
+  drawBoard();
+}
+
+function addHistoryItem(label, num) {
+  const hl = document.getElementById('historyList');
+  // Mark previous latest as normal
+  const prev = hl.querySelector('.latest');
+  if (prev) prev.classList.remove('latest');
+
+  const div = document.createElement('div');
+  div.className = 'h-item latest';
+  div.innerHTML = `<span class="h-num">${num}</span><span>${label}</span>`;
+  hl.appendChild(div);
+  hl.scrollTop = hl.scrollHeight;
+}
+
+function updateUI() {
+  const preview = document.getElementById('stonePreview');
+  const label   = document.getElementById('turnLabel');
+  const isBlack = currentPlayer === 1;
+  preview.className = 'stone-preview ' + (isBlack ? 'stone-black' : 'stone-white');
+
+  if (cfg.mode === 'pve') {
+    label.textContent = isBlack ? '您的回合 ●' : '電腦回合 ○';
+  } else {
+    label.textContent = isBlack ? '黑棋回合 ●' : '白棋回合 ○';
+  }
+}
+
+function showWinner(title, sub) {
+  document.getElementById('winnerTitle').textContent = title;
+  document.getElementById('winnerSub').textContent   = sub;
+  document.getElementById('overlay').classList.add('show');
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('show');
+  startGame();
+}
+
+// ════════════════════════════════════════
+//  AI
+// ════════════════════════════════════════
+
+// Return list of candidate cells (empty, near existing pieces)
+function getCandidates(range) {
+  range = range || 2;
+  const N = cfg.size;
+  const seen = new Uint8Array(N * N);
+  const result = [];
+
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      if (board[r][c] === 0) continue;
+      for (let dr = -range; dr <= range; dr++) {
+        for (let dc = -range; dc <= range; dc++) {
+          const nr = r+dr, nc = c+dc;
+          if (nr<0||nr>=N||nc<0||nc>=N) continue;
+          if (board[nr][nc] !== 0) continue;
+          const idx = nr*N+nc;
+          if (!seen[idx]) { seen[idx]=1; result.push({r:nr,c:nc}); }
+        }
+      }
+    }
+  }
+
+  if (result.length === 0) {
+    // First move: center
+    const mid = Math.floor(N/2);
+    result.push({r: mid, c: mid});
+  }
+  return result;
+}
+
+// Score a cell if player `p` were to place there
+function scoreCell(r, c, p) {
+  const N = cfg.size;
+  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+  let total = 0;
+
+  board[r][c] = p;
+  for (const [dr,dc] of dirs) {
+    let cnt = 1, open = 0;
+
+    for (let i = 1; i <= 5; i++) {
+      const nr = r+dr*i, nc = c+dc*i;
+      if (nr<0||nr>=N||nc<0||nc>=N) break;
+      if (board[nr][nc] === p) cnt++;
+      else { if (board[nr][nc]===0) open++; break; }
+    }
+    for (let i = 1; i <= 5; i++) {
+      const nr = r-dr*i, nc = c-dc*i;
+      if (nr<0||nr>=N||nc<0||nc>=N) break;
+      if (board[nr][nc] === p) cnt++;
+      else { if (board[nr][nc]===0) open++; break; }
+    }
+
+    if      (cnt >= 5)                 total += 1_000_000;
+    else if (cnt === 4 && open === 2)  total += 100_000;
+    else if (cnt === 4 && open === 1)  total += 10_000;
+    else if (cnt === 3 && open === 2)  total += 5_000;
+    else if (cnt === 3 && open === 1)  total += 500;
+    else if (cnt === 2 && open === 2)  total += 200;
+    else if (cnt === 2 && open === 1)  total += 50;
+    else if (cnt === 1 && open >= 1)   total += 10;
+  }
+  board[r][c] = 0;
+  return total;
+}
+
+// ── Easy: random with instant-win awareness ──
+function aiEasy() {
+  const cands = getCandidates(2);
+
+  for (const {r,c} of cands) {
+    board[r][c] = 2;
+    const win = checkWin(r, c, 2);
+    board[r][c] = 0;
+    if (win) return {r,c};
+  }
+
+  return cands[Math.floor(Math.random() * cands.length)];
+}
+
+// ── Medium: best score (attack OR defense) ──
+function aiMedium() {
+  const cands = getCandidates(2);
+
+  for (const {r,c} of cands) {
+    board[r][c] = 2; const w2 = checkWin(r,c,2); board[r][c] = 0;
+    if (w2) return {r,c};
+  }
+  for (const {r,c} of cands) {
+    board[r][c] = 1; const w1 = checkWin(r,c,1); board[r][c] = 0;
+    if (w1) return {r,c};
+  }
+
+  let best = null, bestScore = -1;
+  for (const {r,c} of cands) {
+    const atk = scoreCell(r, c, 2);
+    const def = scoreCell(r, c, 1);
+    const s   = Math.max(atk, def * 0.95);
+    if (s > bestScore) { bestScore = s; best = {r,c}; }
+  }
+  return best || cands[0];
+}
+
+// ── Hard: threat-based + 1-ply lookahead ──
+function aiHard() {
+  const cands = getCandidates(2);
+
+  // Immediate win
+  for (const {r,c} of cands) {
+    board[r][c] = 2; const w = checkWin(r,c,2); board[r][c] = 0;
+    if (w) return {r,c};
+  }
+  // Block opponent win
+  for (const {r,c} of cands) {
+    board[r][c] = 1; const w = checkWin(r,c,1); board[r][c] = 0;
+    if (w) return {r,c};
+  }
+
+  // Score with 1-ply lookahead (simulate AI move then check opponent's best reply)
+  let best = null, bestScore = -Infinity;
+
+  for (const {r,c} of cands) {
+    const atk = scoreCell(r, c, 2);
+    const def = scoreCell(r, c, 1);
+
+    // Lookahead: place AI stone, evaluate opponent's best response
+    board[r][c] = 2;
+    let oppBest = 0;
+    const innerCands = getCandidates(2);
+    for (const {r:nr, c:nc} of innerCands) {
+      const os = scoreCell(nr, nc, 1);
+      if (os > oppBest) oppBest = os;
+    }
+    board[r][c] = 0;
+
+    // Combined score: attack - opponent counter + defense
+    const score = atk * 1.2 + def - oppBest * 0.6;
+
+    if (score > bestScore) { bestScore = score; best = {r,c}; }
+  }
+
+  return best || cands[0];
+}
+
+function aiGetMove() {
+  switch (cfg.diff) {
+    case 'easy':   return aiEasy();
+    case 'medium': return aiMedium();
+    case 'hard':   return aiHard();
+  }
+}
+
+// ════════════════════════════════════════
+//  Boot
+// ════════════════════════════════════════
+startGame();
+</script>
+</body>
+</html>
